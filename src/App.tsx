@@ -23,7 +23,6 @@ const subjects = [
   { name: '历史', id: 9, color: 'bg-orange-500 hover:bg-orange-600' }
 ];
 
-// ✨ 新增：考试组/年级选项
 const examGroups = [
   { name: '高一', id: '90404' },
   { name: '高二', id: '90405' },
@@ -31,11 +30,11 @@ const examGroups = [
 ];
 
 function App() {
-  const [studentId, setStudentId] = useState('');
+  // ✨ 修改点：设置默认考号
+  const [studentId, setStudentId] = useState('351031030');
   const [selectedSubject, setSelectedSubject] = useState(1);
   const [examData, setExamData] = useState<ProcessedExamData | null>(null);
   const [allSubjectsData, setAllSubjectsData] = useState<any[]>([]);
-  // ✨ 新增：管理所选考试组的状态，并设置默认值
   const [examGroup, setExamGroup] = useState(examGroups[2].id); 
 
   const [originalTotal, setOriginalTotal] = useState(0);
@@ -46,11 +45,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const queryAllSubjects = async (studentIdToQuery: string, signal?: AbortSignal) => {
+  const queryAllSubjects = async (studentIdToQuery: string, currentExamGroup: string, signal?: AbortSignal) => {
     const queryPromises = subjects.map(async (subject) => {
       try {
-        // ✨ 修改点：传递动态的 examGroup
-        const data = await fetchExamData(examGroup, studentIdToQuery, subject.id, signal);
+        const data = await fetchExamData(currentExamGroup, studentIdToQuery, subject.id, signal);
         return {
           id: subject.id, name: subject.name,
           score: data.score.score || 0, omrscore: data.score.omrscore || 0,
@@ -62,10 +60,11 @@ function App() {
     });
 
     const results = await Promise.all(queryPromises);
-    const validScores = results.filter(r => r.score > 0);
-    setAllSubjectsData(validScores);
     
-    const { originalTotal, tieredTotal } = calculateTotalScores(validScores);
+    // ✨ 修改点：直接使用所有科目的返回结果，不过滤0分科目
+    setAllSubjectsData(results);
+    
+    const { originalTotal, tieredTotal } = calculateTotalScores(results);
     setOriginalTotal(originalTotal);
     setTieredTotal(tieredTotal);
     
@@ -74,11 +73,10 @@ function App() {
     setGradeRank(Math.floor(Math.random() * 500) + 20);
   };
 
-  const handleQuerySingleSubject = async (subjectId: number, idToQuery: string, signal?: AbortSignal) => {
+  const handleQuerySingleSubject = async (currentExamGroup: string, subjectId: number, idToQuery: string, signal?: AbortSignal) => {
     setExamData(null);
     try {
-      // ✨ 修改点：传递动态的 examGroup
-      const response = await fetchExamData(examGroup, idToQuery, subjectId, signal);
+      const response = await fetchExamData(currentExamGroup, idToQuery, subjectId, signal);
       const processedData = processExamData(response, subjectId);
       setExamData(processedData);
     } catch (err) {
@@ -94,15 +92,17 @@ function App() {
     }
     setLoading(true);
     setError(null);
+    setAllSubjectsData([]); // 清空旧数据
     setOriginalTotal(0);
     setTieredTotal(0);
     setClassRank(0);
     setGradeRank(0);
+
     const abortController = new AbortController();
     try {
       await Promise.all([
-        queryAllSubjects(studentId.trim(), abortController.signal),
-        handleQuerySingleSubject(selectedSubject, studentId.trim(), abortController.signal)
+        queryAllSubjects(studentId.trim(), examGroup, abortController.signal),
+        handleQuerySingleSubject(examGroup, selectedSubject, studentId.trim(), abortController.signal)
       ]);
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
@@ -118,7 +118,7 @@ function App() {
     if (studentId.trim()) {
       setLoading(true);
       setError(null);
-      handleQuerySingleSubject(subjectId, studentId.trim()).finally(() => setLoading(false));
+      handleQuerySingleSubject(examGroup, subjectId, studentId.trim()).finally(() => setLoading(false));
     } else {
       setExamData(null);
     }
@@ -141,7 +141,6 @@ function App() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-800 whitespace-nowrap">临沂期末考试成绩查询系统</h1>
             </div>
             
-            {/* ✨ 关键修改：将输入、选择和按钮包裹在一个容器中，实现移动端垂直排列 */}
             <div className="flex flex-col md:flex-row w-full md:w-auto items-stretch md:items-center gap-2">
               <input
                 type="text"
@@ -198,13 +197,6 @@ function App() {
         {error && !loading && <ErrorMessage message={error} onRetry={handleRetry} />}
 
         <div className="space-y-6">
-          {examData && !loading && (
-            <>
-              <StudentInfoCard {...examData.studentInfo} />
-              <CurrentSubjectScore {...examData.studentInfo} subjectName={getCurrentSubjectName()} />
-            </>
-          )}
-
           {allSubjectsData.length > 0 && !loading && (
             <AllSubjectsScore
               scores={allSubjectsData}
@@ -215,9 +207,10 @@ function App() {
             />
           )}
 
-          {examData && !loading && studentId.trim() && (
+          {examData && !loading && (
             <>
-              {/* ✨ 修改点：传递 examGroup prop */}
+              <StudentInfoCard {...examData.studentInfo} />
+              <CurrentSubjectScore {...examData.studentInfo} subjectName={getCurrentSubjectName()} />
               <ExamPaperImages studentId={studentId} subjectId={selectedSubject} examGroup={examGroup} />
               <OMRDetails omrDetails={examData.omrDetails} />
               <ItemDetails itemDetails={examData.itemDetails} />
