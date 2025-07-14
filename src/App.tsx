@@ -3,6 +3,7 @@ import { Search, GraduationCap } from 'lucide-react';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorMessage } from './components/ErrorMessage';
 import { StudentInfoCard } from './components/StudentInfoCard';
+import { AllSubjectsScore } from './components/AllSubjectsScore';
 import { ExamPaperImages } from './components/ExamPaperImages';
 import { OMRDetails } from './components/OMRDetails';
 import { ItemDetails } from './components/ItemDetails';
@@ -24,9 +25,58 @@ function App() {
   const [studentId, setStudentId] = useState('');
   const [selectedSubject, setSelectedSubject] = useState(1);
   const [examData, setExamData] = useState<any>(null);
+  const [allSubjectsData, setAllSubjectsData] = useState<any[]>([]);
+  const [totalScore, setTotalScore] = useState(0);
   const [currentApiUrl, setCurrentApiUrl] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 查询所有科目成绩
+  const queryAllSubjects = async (studentIdToQuery: string) => {
+    const allScores: any[] = [];
+    let total = 0;
+
+    for (const subject of subjects) {
+      try {
+        const examGroup = '90376';
+        const examId = `${examGroup}000${subject.id}`;
+        const url = `/api/exam?eg=${examGroup}&sid=${studentIdToQuery}&eid=${examId}`;
+        
+        const response = await fetch(url);
+        if (response.ok) {
+          const htmlText = await response.text();
+          const scoreMatch = htmlText.match(/var score = (\{.*?\});/s);
+          
+          if (scoreMatch) {
+            const score = JSON.parse(scoreMatch[1]);
+            allScores.push({
+              id: subject.id,
+              name: subject.name,
+              score: score.score || 0,
+              omrscore: score.omrscore || 0,
+              itemscore: score.itemscore || 0,
+              color: subject.color
+            });
+            total += score.score || 0;
+          }
+        }
+      } catch (error) {
+        console.error(`查询${subject.name}失败:`, error);
+        // 如果某科目查询失败，添加默认数据
+        allScores.push({
+          id: subject.id,
+          name: subject.name,
+          score: 0,
+          omrscore: 0,
+          itemscore: 0,
+          color: subject.color
+        });
+      }
+    }
+
+    setAllSubjectsData(allScores);
+    setTotalScore(total);
+  };
 
   const handleQuery = async (subjectToQuery?: number) => {
     if (!studentId.trim()) {
@@ -37,10 +87,16 @@ function App() {
     setLoading(true);
     setError(null);
     setExamData(null);
+    setAllSubjectsData([]);
+    setTotalScore(0);
 
     const finalSubjectId = subjectToQuery ?? selectedSubject;
 
     try {
+      // 首先查询所有科目成绩
+      await queryAllSubjects(studentId.trim());
+      
+      // 然后查询当前选中科目的详细信息
       const examGroup = '90376';
       const examId = `${examGroup}000${finalSubjectId}`;
       const url = `/api/exam?eg=${examGroup}&sid=${studentId.trim()}&eid=${examId}`;
@@ -85,10 +141,59 @@ function App() {
   const handleSubjectChange = (subjectId: number) => {
     setSelectedSubject(subjectId);
     if (studentId.trim()) {
-      handleQuery(subjectId);
+      // 只查询当前科目详情，不重新查询所有科目
+      handleQuerySingleSubject(subjectId);
     } else {
       setExamData(null);
       setError(null);
+    }
+  };
+
+  // 单独查询某个科目的详细信息
+  const handleQuerySingleSubject = async (subjectId: number) => {
+    setLoading(true);
+    setError(null);
+    setExamData(null);
+
+    try {
+      const examGroup = '90376';
+      const examId = `${examGroup}000${subjectId}`;
+      const url = `/api/exam?eg=${examGroup}&sid=${studentId.trim()}&eid=${examId}`;
+      
+      setCurrentApiUrl(url);
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const htmlText = await response.text();
+      
+      const imgsMatch = htmlText.match(/var imgs = (\[.*?\]);/s);
+      const tmplMatch = htmlText.match(/var tmpl = (\{.*?\});/s);
+      const scoreMatch = htmlText.match(/var score = (\{.*?\});/s);
+
+      if (!imgsMatch || !tmplMatch || !scoreMatch) {
+        throw new Error('无法解析响应数据，请检查考号是否正确');
+      }
+
+      try {
+        const imgs = JSON.parse(imgsMatch[1]);
+        const tmpl = JSON.parse(tmplMatch[1]);
+        const score = JSON.parse(scoreMatch[1]);
+
+        const processedData = processExamData({ imgs, tmpl, score });
+        setExamData(processedData);
+        
+      } catch (parseError) {
+        throw new Error('数据解析失败，请稍后重试');
+      }
+      
+    } catch (err) {
+      console.error('API调用失败:', err);
+      setError(err instanceof Error ? err.message : '查询失败，请检查考号是否正确或稍后重试');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -205,6 +310,11 @@ function App() {
         {/* Exam Results */}
         {examData && !loading && !error && (
           <div className="space-y-6">
+            {/* All Subjects Score Summary */}
+            {allSubjectsData.length > 0 && (
+              <AllSubjectsScore scores={allSubjectsData} totalScore={totalScore} />
+            )}
+            
             {/* Student Info */}
             <StudentInfoCard {...examData.studentInfo} />
             
@@ -217,6 +327,11 @@ function App() {
             {/* Item Details */}
             <ItemDetails itemDetails={examData.itemDetails} />
           </div>
+        )}
+
+        {/* Show all subjects score even when no specific subject is selected */}
+        {allSubjectsData.length > 0 && !examData && !loading && !error && (
+          <AllSubjectsScore scores={allSubjectsData} totalScore={totalScore} />
         )}
       </div>
     </div>
