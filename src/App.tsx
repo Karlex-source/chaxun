@@ -247,27 +247,29 @@ function App() {
       {/* Header */}
       <header className="bg-white shadow-lg">
         <div className="container mx-auto px-4 py-4">
-          {/* ✨ 修改点：父容器在移动端为 flex-col，在桌面端为 flex-row */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             {/* 标题部分 */}
             <div className="flex items-center space-x-3 flex-shrink-0">
               <GraduationCap className="w-8 h-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-800 whitespace-nowrap">临沂期末考试成绩查询系统</h1>
+              <h1 className="text-2xl font-bold text-gray-800 whitespace-nowrap">
+                临沂期末考试成绩查询系统
+              </h1>
             </div>
-            {/* 搜索部分 */}
-            <div className="flex items-center space-x-2 w-full md:w-auto">
+
+            {/* ✨ 修改点：搜索控件的容器 */}
+            <div className="flex flex-col md:flex-row w-full md:w-auto items-stretch md:items-center gap-2 md:gap-0 md:space-x-2">
               <input
                 type="text"
                 placeholder="请输入考号"
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleQuery()}
-                className="flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full md:w-auto flex-grow px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 onClick={() => handleQuery()}
                 disabled={loading}
-                className="flex-shrink-0 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 transition-colors"
+                className="w-full md:w-auto justify-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 transition-colors"
               >
                 <Search className="w-5 h-5" />
                 <span>{loading ? '查询中...' : '查询'}</span>
