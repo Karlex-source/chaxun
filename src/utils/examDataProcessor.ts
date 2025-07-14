@@ -1,8 +1,10 @@
 import { ExamResponse, ProcessedExamData } from '../types/exam';
 
-// 标准赋分函数 (临时占位)
-// 您可以稍后根据实际规则修改此函数
-function getTieredScore(originalScore: number): number {
+// 标准赋分函数 (临时占位, 您可以稍后根据实际规则修改此函数)
+export function getTieredScore(originalScore: number): number {
+  if (originalScore > 100) originalScore = 100; // 限制最高分
+  if (originalScore < 0) originalScore = 0;   // 限制最低分
+
   if (originalScore >= 90) return 91 + Math.round((originalScore - 90) * (9 / 10));
   if (originalScore >= 78) return 81 + Math.round((originalScore - 78) * (9 / 11));
   if (originalScore >= 66) return 71 + Math.round((originalScore - 66) * (9 / 11));
@@ -13,14 +15,13 @@ function getTieredScore(originalScore: number): number {
 }
 
 // 需要赋分的科目ID
-const TIERED_SUBJECT_IDS = [4, 5, 6, 7, 8, 9]; // 物理,化学,生物,地理,政治,历史
+export const TIERED_SUBJECT_IDS = [4, 5, 6, 7, 8, 9]; // 物理,化学,生物,地理,政治,历史
 
 export function processExamData(response: ExamResponse, subjectId: number): ProcessedExamData {
   const { imgs, tmpl, score } = response;
 
   const isTieredSubject = TIERED_SUBJECT_IDS.includes(subjectId);
-  const finalScore = isTieredSubject ? getTieredScore(score.score) : score.score;
-
+  
   const studentInfo = {
     name: score.name,
     code: score.code,
@@ -29,15 +30,15 @@ export function processExamData(response: ExamResponse, subjectId: number): Proc
     classroom: score.classroom,
     course: score.course,
     score: score.score, // 原始分
-    tieredScore: isTieredSubject ? finalScore : null, // 赋分后的分数
+    // ✨ 新增：赋分后的分数 (如果不是赋分科目则为 null)
+    tieredScore: isTieredSubject ? getTieredScore(score.score) : null,
     omrscore: score.omrscore,
     itemscore: score.itemscore,
-    // 为排名预留字段
-    classRank: Math.floor(Math.random() * 30) + 1, // 临时随机数据
-    gradeRank: Math.floor(Math.random() * 400) + 20, // 临时随机数据
+    // ✨ 新增：为排名预留字段 (使用随机数作为临时占位符)
+    classRank: Math.floor(Math.random() * 40) + 1,
+    gradeRank: Math.floor(Math.random() * 500) + 20,
   };
-  
-  // ... 其他数据处理逻辑 (images, omrDetails, itemDetails) 保持不变
+
   const images = imgs.map(img => ({ pageno: img.pageno, url: img.url }));
 
   const omrDetails = tmpl.omr.map(omrItem => {
@@ -78,7 +79,7 @@ export function processExamData(response: ExamResponse, subjectId: number): Proc
   return { studentInfo, images, omrDetails, itemDetails };
 }
 
-// 新增一个函数，用于计算总分
+// ✨ 新增：用于计算总分的独立函数
 export function calculateTotalScores(scoresData: any[]) {
     let originalTotal = 0;
     let tieredTotal = 0;
