@@ -1,12 +1,8 @@
 import { ExamResponse } from '../types/exam';
 
-// ✨ 修改点：移除硬编码的 EXAM_GROUP 常量
-
-// ✨ 修改点：在函数签名中加入 examGroup 参数
 export async function fetchExamData(examGroup: string, studentId: string, subjectId: number, signal?: AbortSignal): Promise<ExamResponse> {
   const examId = `${examGroup}000${subjectId}`;
   
-  // 使用传入的 examGroup 构建 URL
   const proxyUrl = `/api/exam?eg=${examGroup}&sid=${studentId}&eid=${examId}`;
   
   try {
