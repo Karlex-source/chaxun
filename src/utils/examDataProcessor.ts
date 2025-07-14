@@ -1,9 +1,26 @@
-import { ExamResponse, ProcessedExamData, OMRItem, ItemDetail } from '../types/exam';
+import { ExamResponse, ProcessedExamData } from '../types/exam';
 
-export function processExamData(response: ExamResponse): ProcessedExamData {
+// 标准赋分函数 (临时占位)
+// 您可以稍后根据实际规则修改此函数
+function getTieredScore(originalScore: number): number {
+  if (originalScore >= 90) return 91 + Math.round((originalScore - 90) * (9 / 10));
+  if (originalScore >= 78) return 81 + Math.round((originalScore - 78) * (9 / 11));
+  if (originalScore >= 66) return 71 + Math.round((originalScore - 66) * (9 / 11));
+  if (originalScore >= 54) return 61 + Math.round((originalScore - 54) * (9 / 11));
+  if (originalScore >= 42) return 51 + Math.round((originalScore - 42) * (9 / 11));
+  if (originalScore >= 30) return 41 + Math.round((originalScore - 30) * (9 / 11));
+  return 30 + Math.round(originalScore * (10 / 29));
+}
+
+// 需要赋分的科目ID
+const TIERED_SUBJECT_IDS = [4, 5, 6, 7, 8, 9]; // 物理,化学,生物,地理,政治,历史
+
+export function processExamData(response: ExamResponse, subjectId: number): ProcessedExamData {
   const { imgs, tmpl, score } = response;
 
-  // 处理学生信息
+  const isTieredSubject = TIERED_SUBJECT_IDS.includes(subjectId);
+  const finalScore = isTieredSubject ? getTieredScore(score.score) : score.score;
+
   const studentInfo = {
     name: score.name,
     code: score.code,
@@ -11,23 +28,21 @@ export function processExamData(response: ExamResponse): ProcessedExamData {
     schoolname: score.schoolname,
     classroom: score.classroom,
     course: score.course,
-    score: score.score,
+    score: score.score, // 原始分
+    tieredScore: isTieredSubject ? finalScore : null, // 赋分后的分数
     omrscore: score.omrscore,
-    itemscore: score.itemscore
+    itemscore: score.itemscore,
+    // 为排名预留字段
+    classRank: Math.floor(Math.random() * 30) + 1, // 临时随机数据
+    gradeRank: Math.floor(Math.random() * 400) + 20, // 临时随机数据
   };
+  
+  // ... 其他数据处理逻辑 (images, omrDetails, itemDetails) 保持不变
+  const images = imgs.map(img => ({ pageno: img.pageno, url: img.url }));
 
-  // 处理图片信息
-  const images = imgs.map(img => ({
-    pageno: img.pageno,
-    url: img.url
-  }));
-
-  // 处理客观题详情
   const omrDetails = tmpl.omr.map(omrItem => {
     const studentOMR = score.omrdetail.find(detail => detail.itemid === omrItem.itemid);
-    const correctAnswer = omrItem.answers.find(ans => ans.s === omrItem.score)?.a || 
-                         omrItem.answers[0]?.a || '';
-    
+    const correctAnswer = omrItem.answers.find(ans => ans.s === omrItem.score)?.a || omrItem.answers[0]?.a || '';
     return {
       itemid: omrItem.itemid,
       title: omrItem.title,
@@ -38,25 +53,18 @@ export function processExamData(response: ExamResponse): ProcessedExamData {
     };
   });
 
-  // 处理主观题详情，生成双评分数
   const itemDetails = score.itemdetail.map(item => {
     const templateItem = tmpl.items.find(t => t.itemid === item.itemid);
     const fullscore = templateItem?.score || 0;
-    
-    // 根据分数生成双评分数
     let score1: number, score2: number;
     if (item.score % 1 === 0) {
-      // 整数分数，两评相同
       score1 = score2 = item.score;
     } else if (item.score % 1 === 0.5) {
-      // .5分数，两评相差1
       score1 = Math.floor(item.score);
       score2 = Math.ceil(item.score);
     } else {
-      // 其他情况，保持原分数
       score1 = score2 = item.score;
     }
-
     return {
       itemid: item.itemid,
       title: item.title,
@@ -67,10 +75,24 @@ export function processExamData(response: ExamResponse): ProcessedExamData {
     };
   });
 
-  return {
-    studentInfo,
-    images,
-    omrDetails,
-    itemDetails
-  };
+  return { studentInfo, images, omrDetails, itemDetails };
+}
+
+// 新增一个函数，用于计算总分
+export function calculateTotalScores(scoresData: any[]) {
+    let originalTotal = 0;
+    let tieredTotal = 0;
+
+    scoresData.forEach(subject => {
+        if (subject.score > 0) {
+            originalTotal += subject.score;
+            if (TIERED_SUBJECT_IDS.includes(subject.id)) {
+                tieredTotal += getTieredScore(subject.score);
+            } else {
+                tieredTotal += subject.score;
+            }
+        }
+    });
+
+    return { originalTotal, tieredTotal };
 }
