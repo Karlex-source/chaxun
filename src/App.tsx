@@ -32,37 +32,66 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   // 查询所有科目成绩
-  const queryAllSubjects = async (studentIdToQuery: string) => {
+  const queryAllSubjects = async (studentIdToQuery: string, signal?: AbortSignal) => {
     const allScores: any[] = [];
     let total = 0;
 
-    for (const subject of subjects) {
+    // 并发查询所有科目，而不是串行查询
+    const queryPromises = subjects.map(async (subject) => {
       try {
         const examGroup = '90376';
         const examId = `${examGroup}000${subject.id}`;
         const url = `/api/exam?eg=${examGroup}&sid=${studentIdToQuery}&eid=${examId}`;
         
-        const response = await fetch(url);
+        const response = await fetch(url, { signal });
         if (response.ok) {
           const htmlText = await response.text();
           const scoreMatch = htmlText.match(/var score = (\{.*?\});/s);
           
           if (scoreMatch) {
             const score = JSON.parse(scoreMatch[1]);
-            allScores.push({
+            return {
               id: subject.id,
               name: subject.name,
               score: score.score || 0,
               omrscore: score.omrscore || 0,
               itemscore: score.itemscore || 0,
               color: subject.color
-            });
-            total += score.score || 0;
+            };
           }
         }
       } catch (error) {
+        if (error.name === 'AbortError') {
+          throw error;
+        }
         console.error(`查询${subject.name}失败:`, error);
-        // 如果某科目查询失败，添加默认数据
+      }
+      
+      // 如果查询失败，返回默认数据
+      return {
+        id: subject.id,
+        name: subject.name,
+        score: 0,
+        omrscore: 0,
+        itemscore: 0,
+        color: subject.color
+      };
+    });
+
+    try {
+      const results = await Promise.all(queryPromises);
+      results.forEach(result => {
+        if (result) {
+          allScores.push(result);
+          total += result.score || 0;
+        }
+      });
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      // 如果并发查询失败，使用默认数据
+      subjects.forEach(subject => {
         allScores.push({
           id: subject.id,
           name: subject.name,
@@ -71,7 +100,7 @@ function App() {
           itemscore: 0,
           color: subject.color
         });
-      }
+      });
     }
 
     setAllSubjectsData(allScores);
@@ -91,24 +120,27 @@ function App() {
     setTotalScore(0);
 
     const finalSubjectId = subjectToQuery ?? selectedSubject;
+    const abortController = new AbortController();
 
     try {
-      // 首先查询所有科目成绩
-      await queryAllSubjects(studentId.trim());
+      // 并发查询：同时查询所有科目成绩和当前科目详细信息
+      const [_, detailResponse] = await Promise.all([
+        queryAllSubjects(studentId.trim(), abortController.signal),
+        (async () => {
+          const examGroup = '90376';
+          const examId = `${examGroup}000${finalSubjectId}`;
+          const url = `/api/exam?eg=${examGroup}&sid=${studentId.trim()}&eid=${examId}`;
+          
+          setCurrentApiUrl(url);
+          return fetch(url, { signal: abortController.signal });
+        })()
+      ]);
       
-      // 然后查询当前选中科目的详细信息
-      const examGroup = '90376';
-      const examId = `${examGroup}000${finalSubjectId}`;
-      const url = `/api/exam?eg=${examGroup}&sid=${studentId.trim()}&eid=${examId}`;
-      
-      setCurrentApiUrl(url); // 使用代理URL来显示图片
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!detailResponse.ok) {
+        throw new Error(`HTTP error! status: ${detailResponse.status}`);
       }
 
-      const htmlText = await response.text();
+      const htmlText = await detailResponse.text();
       
       const imgsMatch = htmlText.match(/var imgs = (\[.*?\]);/s);
       const tmplMatch = htmlText.match(/var tmpl = (\{.*?\});/s);
@@ -131,6 +163,9 @@ function App() {
       }
       
     } catch (err) {
+      if (err.name === 'AbortError') {
+        return; // 用户取消了请求
+      }
       console.error('API调用失败:', err);
       setError(err instanceof Error ? err.message : '查询失败，请检查考号是否正确或稍后重试');
     } finally {
@@ -310,13 +345,13 @@ function App() {
         {/* Exam Results */}
         {examData && !loading && !error && (
           <div className="space-y-6">
+            {/* Student Info */}
+            <StudentInfoCard {...examData.studentInfo} />
+            
             {/* All Subjects Score Summary */}
             {allSubjectsData.length > 0 && (
               <AllSubjectsScore scores={allSubjectsData} totalScore={totalScore} />
             )}
-            
-            {/* Student Info */}
-            <StudentInfoCard {...examData.studentInfo} />
             
             {/* Exam Paper Images */}
             <ExamPaperImages images={examData.images} originalApiUrl={currentApiUrl} />
@@ -330,8 +365,10 @@ function App() {
         )}
 
         {/* Show all subjects score even when no specific subject is selected */}
-        {allSubjectsData.length > 0 && !examData && !loading && !error && (
-          <AllSubjectsScore scores={allSubjectsData} totalScore={totalScore} />
+        {allSubjectsData.length > 0 && !examData && !loading && !error && studentId.trim() && (
+          <div className="space-y-6">
+            <AllSubjectsScore scores={allSubjectsData} totalScore={totalScore} />
+          </div>
         )}
       </div>
     </div>
