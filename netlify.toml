@@ -1,0 +1,32 @@
+# Netlify 构建配置
+# 告诉 Netlify 如何构建和发布你的网站
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# --- 代理规则 (Proxy Rewrites) ---
+# 这是解决 API 404 问题的关键
+
+# 规则 1: 代理用于 fetch 数据的 API 请求
+[[redirects]]
+  from = "/api/exam/*"
+  to = "https://yunyj.linyi.net/wechat/imgs/:splat"
+  status = 200
+  force = true # 确保该规则总是被应用
+
+# 规则 2: 代理用于 iframe 页面的请求
+# 虽然我们之前的方案证实了 iframe 因 X-Frame-Options 无法使用，
+# 但为了代码逻辑的完整性，保留此代理。
+# 如果未来要用 iframe，通过 Netlify 代理是正确的方式。
+[[redirects]]
+  from = "/api/exam-page/*"
+  to = "https://yunyj.linyi.net/wechat/imgs/:splat"
+  status = 200
+  force = true
+
+# --- 单页应用（SPA）路由回退规则 ---
+# 这个规则必须放在最后。它解决了直接访问/刷新子页面时的404问题。
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
