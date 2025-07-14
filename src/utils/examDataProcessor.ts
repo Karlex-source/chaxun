@@ -1,23 +1,20 @@
-import { ExamResponse, ProcessedExamData } from '../types/exam';
-
-// 标准赋分函数 (临时占位, 您可以稍后根据实际规则修改此函数)
-export function getTieredScore(originalScore: number): number {
-  if (originalScore > 100) originalScore = 100; // 限制最高分
-  if (originalScore < 0) originalScore = 0;   // 限制最低分
-
-  if (originalScore >= 90) return 91 + Math.round((originalScore - 90) * (9 / 10));
-  if (originalScore >= 78) return 81 + Math.round((originalScore - 78) * (9 / 11));
-  if (originalScore >= 66) return 71 + Math.round((originalScore - 66) * (9 / 11));
-  if (originalScore >= 54) return 61 + Math.round((originalScore - 54) * (9 / 11));
-  if (originalScore >= 42) return 51 + Math.round((originalScore - 42) * (9 / 11));
-  if (originalScore >= 30) return 41 + Math.round((originalScore - 30) * (9 / 11));
-  return 30 + Math.round(originalScore * (10 / 29));
-}
+import { ExamResponse, ProcessedExamData, StudentScore, Template } from '../types/exam';
 
 // 需要赋分的科目ID
 export const TIERED_SUBJECT_IDS = [4, 5, 6, 7, 8, 9]; // 物理,化学,生物,地理,政治,历史
 
-export function processExamData(response: ExamResponse, subjectId: number): ProcessedExamData {
+/**
+ * 标准赋分函数 (临时占位, 您可以稍后根据实际规则修改此函数)
+ * 当前规则：赋分 = 原始分 + 5 (仅用于演示)
+ */
+export function getTieredScore(originalScore: number): number {
+  if (originalScore <= 0) return originalScore;
+  // 这是一个非常临时的占位符规则
+  const tieredScore = Math.min(originalScore + 5, 100); // 简单加5分，且不超过100
+  return tieredScore;
+}
+
+export function processExamData(response: { imgs: any[], tmpl: Template, score: StudentScore }, subjectId: number): ProcessedExamData {
   const { imgs, tmpl, score } = response;
 
   const isTieredSubject = TIERED_SUBJECT_IDS.includes(subjectId);
