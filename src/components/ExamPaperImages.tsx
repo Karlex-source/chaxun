@@ -49,7 +49,10 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
       const response = await fetch(proxyUrl);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (response.status === 404) {
+          throw new Error('未能找到该考号和科目的答题卡页面，请确认考号和科目是否正确。');
+        }
+        throw new Error(`加载失败 (${response.status}): ${response.statusText || '服务器错误'}`);
       }
 
       let html = await response.text();
