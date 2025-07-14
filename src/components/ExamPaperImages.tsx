@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileImage, Maximize2, Minimize2, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
+import { FileImage, Maximize2, Minimize2, ExternalLink, AlertTriangle } from 'lucide-react';
 
 interface ExamPaperImagesProps {
   images: any[];
@@ -8,7 +8,8 @@ interface ExamPaperImagesProps {
 
 export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showDirectAccess, setShowDirectAccess] = useState(false);
+  // ✨ 修改点：默认设置为 true，直接显示答题卡
+  const [showDirectAccess, setShowDirectAccess] = useState(true);
 
   // 从代理URL构造参数
   const getUrlParams = (proxyUrl: string) => {
@@ -123,7 +124,7 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
         )}
         
         <div className="mt-3 text-sm text-gray-500 text-center">
-     
+         
          
         </div>
       </div>
