@@ -4,6 +4,7 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { ErrorMessage } from './components/ErrorMessage';
 import { StudentInfoCard } from './components/StudentInfoCard';
 import { AllSubjectsScore } from './components/AllSubjectsScore';
+import { CurrentSubjectScore } from './components/CurrentSubjectScore';
 import { ExamPaperImages } from './components/ExamPaperImages';
 import { OMRDetails } from './components/OMRDetails';
 import { ItemDetails } from './components/ItemDetails';
@@ -352,6 +353,14 @@ function App() {
             {allSubjectsData.length > 0 && (
               <AllSubjectsScore scores={allSubjectsData} totalScore={totalScore} />
             )}
+            
+            {/* Current Subject Score */}
+            <CurrentSubjectScore 
+              subjectName={getCurrentSubjectName()}
+              score={examData.studentInfo.score}
+              omrscore={examData.studentInfo.omrscore}
+              itemscore={examData.studentInfo.itemscore}
+            />
             
             {/* Exam Paper Images */}
             <ExamPaperImages images={examData.images} originalApiUrl={currentApiUrl} />

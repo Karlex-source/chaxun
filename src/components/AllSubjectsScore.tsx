@@ -16,7 +16,10 @@ interface AllSubjectsScoreProps {
 }
 
 export function AllSubjectsScore({ scores, totalScore }: AllSubjectsScoreProps) {
-  if (!scores || scores.length === 0) {
+  // 过滤掉总分为0的科目
+  const validScores = scores.filter(score => score.score > 0);
+  
+  if (!validScores || validScores.length === 0) {
     return null;
   }
 
@@ -40,7 +43,7 @@ export function AllSubjectsScore({ scores, totalScore }: AllSubjectsScoreProps) 
 
       {/* 各科成绩网格 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {scores.map((subject) => (
+        {validScores.map((subject) => (
           <div
             key={subject.id}
             className="p-4 rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors"

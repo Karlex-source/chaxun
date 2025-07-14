@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileImage, Maximize2, Minimize2, RefreshCw, ExternalLink } from 'lucide-react';
+import { FileImage, Maximize2, Minimize2, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
 
 interface ExamPaperImagesProps {
   images: any[];
@@ -8,8 +8,7 @@ interface ExamPaperImagesProps {
 
 export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [showDirectAccess, setShowDirectAccess] = useState(false);
 
   // 从代理URL构造参数
   const getUrlParams = (proxyUrl: string) => {
@@ -38,16 +37,6 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
 
   const directUrl = getDirectUrl();
 
-  const handleIframeLoad = () => {
-    setLoading(false);
-    setError(null);
-  };
-
-  const handleIframeError = () => {
-    setLoading(false);
-    setError('无法加载答题卡，请检查网络连接或考号是否正确');
-  };
-
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
@@ -58,18 +47,8 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
     }
   };
 
-  const handleRefresh = () => {
-    setLoading(true);
-    setError(null);
-    // 通过重新设置src来刷新iframe
-    const iframe = document.getElementById('exam-iframe') as HTMLIFrameElement;
-    if (iframe) {
-      const currentSrc = iframe.src;
-      iframe.src = '';
-      setTimeout(() => {
-        iframe.src = currentSrc;
-      }, 100);
-    }
+  const handleDirectAccess = () => {
+    setShowDirectAccess(true);
   };
 
   if (!urlParams || !directUrl) {
@@ -86,40 +65,14 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
     );
   }
 
-  const ExamViewer = ({ className = "" }: { className?: string }) => (
+  const DirectAccessView = ({ className = "" }: { className?: string }) => (
     <div className={`relative border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-50 ${className}`}>
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
-          <div className="flex flex-col items-center space-y-2">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="text-sm text-gray-600">正在加载答题卡...</p>
-          </div>
-        </div>
-      )}
-      
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
-          <div className="text-center">
-            <div className="text-red-500 mb-2">加载失败</div>
-            <div className="text-sm text-gray-600 mb-4">{error}</div>
-            <button
-              onClick={handleRefresh}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              重试
-            </button>
-          </div>
-        </div>
-      )}
-      
       <iframe
-        id="exam-iframe"
         src={directUrl}
         className={`w-full border-0 ${isFullscreen ? 'h-full' : 'h-[600px]'}`}
         title="答题卡查看"
-        onLoad={handleIframeLoad}
-        onError={handleIframeError}
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"
+        referrerPolicy="no-referrer-when-downgrade"
       />
     </div>
   );
@@ -133,13 +86,6 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
             答题卡查看
           </h2>
           <div className="flex items-center space-x-2">
-            <button
-              onClick={handleRefresh}
-              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="刷新"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
             <button
               onClick={openInNewTab}
               className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -157,12 +103,36 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
           </div>
         </div>
         
-        <ExamViewer />
+        {!showDirectAccess ? (
+          <div className="text-center py-12 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-yellow-800 mb-2">需要直接访问</h3>
+            <p className="text-yellow-700 mb-4">
+              由于浏览器安全策略，答题卡页面需要在新窗口中打开才能正常显示
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={openInNewTab}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mr-3"
+              >
+                在新标签页打开
+              </button>
+              <button
+                onClick={handleDirectAccess}
+                className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+              >
+                尝试在此处显示
+              </button>
+            </div>
+          </div>
+        ) : (
+          <DirectAccessView />
+        )}
         
         <div className="mt-3 text-sm text-gray-500 text-center">
-          <p>答题卡实时查看 - 直接访问原始页面</p>
-          <p className="text-xs mt-1">
-            访问链接: <span className="font-mono text-blue-600">{directUrl}</span>
+          <p>答题卡查看链接</p>
+          <p className="text-xs mt-1 break-all">
+            <span className="font-mono text-blue-600">{directUrl}</span>
           </p>
         </div>
       </div>
@@ -174,13 +144,6 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-semibold text-gray-800">答题卡全屏查看</h3>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleRefresh}
-                  className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="刷新"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                </button>
                 <button
                   onClick={openInNewTab}
                   className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -199,7 +162,7 @@ export function ExamPaperImages({ images, originalApiUrl }: ExamPaperImagesProps
             </div>
             
             <div className="flex-1">
-              <ExamViewer className="h-full" />
+              <DirectAccessView className="h-full" />
             </div>
           </div>
         </div>
